@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Go Docker Manager</title>
-    <!-- Tailwind CSS para el diseño -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- HTMX para la interactividad sin recargar página -->
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
 </head>
 <body class="bg-gray-900 text-gray-100 font-sans">
@@ -14,39 +12,49 @@
     <div class="container mx-auto p-6">
         <header class="flex justify-between items-center mb-8">
             <h1 class="text-3xl font-bold text-blue-400">🚀 Go Docker Manager</h1>
-            <span class="bg-gray-800 px-3 py-1 rounded-full text-sm border border-gray-700">Modo Web Activo</span>
+            <span class="bg-gray-800 px-3 py-1 rounded-full text-sm border border-gray-700">Fase 2.5 - Control Total</span>
         </header>
 
-        <div class="bg-gray-800 rounded-lg shadow-xl overflow-hidden border border-gray-700">
-            <table class="w-full text-left">
-                <thead class="bg-gray-700 text-gray-300 uppercase text-xs">
-                    <tr>
-                        <th class="px-6 py-3">Contenedor</th>
-                        <th class="px-6 py-3">Imagen</th>
-                        <th class="px-6 py-3">Estado</th>
-                        <th class="px-6 py-3 text-center">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-700">
-                    {{range .}}
-                    <tr class="hover:bg-gray-750 transition-colors">
-                        <td class="px-6 py-4 font-medium">{{.Name}} <br> <span class="text-xs text-gray-500">{{.ID}}</span></td>
-                        <td class="px-6 py-4 text-gray-400 text-sm">{{.Image}}</td>
-                        <td class="px-6 py-4">
-                            <span class="px-2 py-1 rounded-full text-xs {{if eq .State "running"}}bg-green-900 text-green-300{{else}}bg-red-900 text-red-300{{end}}">
-                                {{.State}}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 text-center space-x-2">
-                            <!-- Botones con HTMX: Llaman al servidor y actualizan la página -->
-                            <button hx-get="/control/{{.ID}}?action=start" hx-target="body" hx-swap="none" class="bg-green-600 hover:bg-green-500 px-3 py-1 rounded text-xs transition">Start</button>
-                            <button hx-get="/control/{{.ID}}?action=stop" hx-target="body" hx-swap="none" class="bg-red-600 hover:bg-red-500 px-3 py-1 rounded text-xs transition">Stop</button>
-                            <button hx-get="/control/{{.ID}}?action=restart" hx-target="body" hx-swap="none" class="bg-yellow-600 hover:bg-yellow-500 px-3 py-1 rounded text-xs transition">Restart</button>
-                        </td>
-                    </tr>
-                    {{end}}
-                </tbody>
-            </table>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Tabla de Contenedores -->
+            <div class="lg:col-span-2 bg-gray-800 rounded-lg shadow-xl overflow-hidden border border-gray-700">
+                <table class="w-full text-left">
+                    <thead class="bg-gray-700 text-gray-300 uppercase text-xs">
+                        <tr>
+                            <th class="px-6 py-3">Contenedor</th>
+                            <th class="px-6 py-3">Estado</th>
+                            <th class="px-6 py-3 text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-700">
+                        {{range .}}
+                        <tr class="hover:bg-gray-700 transition-colors">
+                            <td class="px-6 py-4">
+                                <div class="font-medium">{{.Name}}</div>
+                                <div class="text-xs text-gray-500">{{.ID}}</div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="px-2 py-1 rounded-full text-xs {{if eq .State "running"}}bg-green-900 text-green-300{{else}}bg-red-900 text-red-300{{end}}">
+                                    {{.State}}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-center space-x-1">
+                                <button hx-get="/control/{{.ID}}?action=start" hx-target="body" hx-swap="none" class="bg-green-600 hover:bg-green-500 p-1 rounded text-xs">Start</button>
+                                <button hx-get="/control/{{.ID}}?action=stop" hx-target="body" hx-swap="none" class="bg-red-600 hover:bg-red-500 p-1 rounded text-xs">Stop</button>
+                                <button hx-get="/control/{{.ID}}?action=restart" hx-target="body" hx-swap="none" class="bg-yellow-600 hover:bg-yellow-500 p-1 rounded text-xs">Restart</button>
+                                <!-- Botón para cargar logs y consola -->
+                                <button hx-get="/details/{{.ID}}" hx-target="#details-panel" class="bg-blue-600 hover:bg-blue-500 p-1 rounded text-xs">Gestionar</button>
+                            </td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Panel de Detalles (Logs y Consola) -->
+            <div id="details-panel" class="bg-gray-800 rounded-lg p-6 border border-gray-700 shadow-xl">
+                <p class="text-gray-500 text-center italic">Selecciona un contenedor para ver sus logs y enviar comandos</p>
+            </div>
         </div>
     </div>
 

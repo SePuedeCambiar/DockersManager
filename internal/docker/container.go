@@ -1,13 +1,14 @@
 package docker
 
 import (
+	"bytes"   // Añadido: Para capturar la salida en memoria
 	"context"
 	"fmt"
-	"os" // Importante para os.Stdout y os.Stderr
 
-	"github.com/docker/docker/api/types"             // Añadido para tipos generales
-	"github.com/docker/docker/api/types/container"   // Para opciones de contenedores
-	"github.com/docker/docker/pkg/stdcopy"           // Fundamental para procesar logs y exec
+
+	"github.com/docker/docker/api/types"             
+	"github.com/docker/docker/api/types/container"   
+	"github.com/docker/docker/pkg/stdcopy"           
 )
 
 // ContainerInfo es una estructura simplificada para mostrar la info del contenedor
@@ -86,8 +87,8 @@ func (dm *DockerManager) RestartContainer(id string) error {
 	return nil
 }
 
-// GetLogs obtiene los logs recientes de un contenedor
-func (dm *DockerManager) GetLogs(id string) error {
+// GetLogs obtiene los logs recientes y los devuelve como un string para la web
+func (dm *DockerManager) GetLogs(id string) (string, error) {
 	ctx := context.Background()
 
 	options := container.LogsOptions{
@@ -99,23 +100,24 @@ func (dm *DockerManager) GetLogs(id string) error {
 
 	out, err := dm.Cli.ContainerLogs(ctx, id, options)
 	if err != nil {
-		return fmt.Errorf("error al obtener logs: %w", err)
+		return "", fmt.Errorf("error al obtener logs: %w", err)
 	}
 	defer out.Close()
 
-	_, err = stdcopy.StdCopy(os.Stdout, os.Stderr, out)
+	// Usamos un buffer para guardar la salida en lugar de imprimirla en consola
+	var buf bytes.Buffer
+	_, err = stdcopy.StdCopy(&buf, &buf, out) 
 	if err != nil {
-		return fmt.Errorf("error al procesar la salida de logs: %w", err)
+		return "", fmt.Errorf("error al procesar la salida de logs: %w", err)
 	}
 
-	return nil
+	return buf.String(), nil
 }
 
-// ExecCommand ejecuta un comando dentro de un contenedor y devuelve la salida
-func (dm *DockerManager) ExecCommand(id string, cmd []string) error {
+// ExecCommand ejecuta un comando y devuelve la respuesta como un string para la web
+func (dm *DockerManager) ExecCommand(id string, cmd []string) (string, error) {
 	ctx := context.Background()
 
-	// FIX: Usamos types.ExecConfig en lugar de container.ExecOptions
 	execConfig := types.ExecConfig{
 		Cmd:          cmd,
 		AttachStdout: true,
@@ -124,20 +126,21 @@ func (dm *DockerManager) ExecCommand(id string, cmd []string) error {
 
 	execID, err := dm.Cli.ContainerExecCreate(ctx, id, execConfig)
 	if err != nil {
-		return fmt.Errorf("error al crear el comando exec: %w", err)
+		return "", fmt.Errorf("error al crear el comando exec: %w", err)
 	}
 
-	// FIX: Usamos types.ExecStartCheck{} para el Attach
 	resp, err := dm.Cli.ContainerExecAttach(ctx, execID.ID, types.ExecStartCheck{})
 	if err != nil {
-		return fmt.Errorf("error al adjuntar al comando exec: %w", err)
+		return "", fmt.Errorf("error al adjuntar al comando exec: %w", err)
 	}
 	defer resp.Close()
 
-	_, err = stdcopy.StdCopy(os.Stdout, os.Stderr, resp.Reader)
+	// Usamos un buffer para capturar la respuesta del comando
+	var buf bytes.Buffer
+	_, err = stdcopy.StdCopy(&buf, &buf, resp.Reader)
 	if err != nil {
-		return fmt.Errorf("error al leer la respuesta del comando: %w", err)
+		return "", fmt.Errorf("error al leer la respuesta del comando: %w", err)
 	}
 
-	return nil
+	return buf.String(), nil
 }
