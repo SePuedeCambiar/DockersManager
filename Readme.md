@@ -1,0 +1,1 @@
+Proyecto basico, intento para gestionar dockers de manera visual
