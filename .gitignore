@@ -1,0 +1,33 @@
+# --- Binarios ---
+# Ignoramos el ejecutable final del programa
+manager
+bin/
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# --- Entorno y Secretos ---
+# NUNCA subir el archivo .env ya que contiene rutas locales o tokens
+.env
+.env.local
+.env.*.local
+
+# --- IDEs y Editores ---
+# VS Code
+.vscode/
+# JetBrains (GoLand, IntelliJ)
+.idea/
+# Vim
+*.swp
+*~
+
+# --- Sistema Operativo ---
+.DS_Store
+Thumbs.db
+
+# --- Go ---
+# Aunque go.mod y go.sum se suben, ignoramos posibles caches locales
+vendor/

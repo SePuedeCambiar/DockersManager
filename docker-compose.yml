@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  manager:
+    build: .
+    container_name: go-docker-manager
+    restart: unless-stopped
+    # Aquí montamos el socket de Docker del HOST al CONTENEDOR
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Montamos la carpeta de config si queremos guardar logs o ymls
+      - ./config:/app/config 
+    env_file:
+      - .env
+    # Ejecutamos como root para evitar problemas de permisos con el socket en fase 1
+    user: root
