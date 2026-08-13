@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/docker/docker v26.1.4+incompatible
+	github.com/go-chi/chi/v5 v5.3.1
 	github.com/spf13/cobra v1.10.2
 )
 
