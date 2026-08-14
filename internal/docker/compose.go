@@ -3,15 +3,12 @@ package docker
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/docker/docker/api/types/container"
 	"gopkg.in/yaml.v3"
 )
-
-const BasePath = "/stacks"
 
 // --- Estructuras para parsear el docker-compose.yml ---
 type ComposeConfig struct {
@@ -22,44 +19,39 @@ type ServiceConfig struct {
 	Ports []string `yaml:"ports"`
 }
 
-// GetProjectFiles busca qué archivos de configuración existen
+// GetProjectFiles busca qué archivos de configuración existen usando el FSManager
 func (dm *DockerManager) GetProjectFiles(projectName string) ([]string, error) {
-	projectPath := filepath.Join(BasePath, projectName)
-	targets := []string{"docker-compose.yml", "docker-compose.yaml", ".env", "Dockerfile"}
-	var foundFiles []string
+	// Usamos ListDir del FSManager para ver qué hay en la carpeta del proyecto
+	entries, err := dm.FS.ListDir(projectName)
+	if err != nil {
+		return nil, err
+	}
 
-	for _, target := range targets {
-		fullPath := filepath.Join(projectPath, target)
-		if _, err := os.Stat(fullPath); err == nil {
-			foundFiles = append(foundFiles, target)
+	targets := map[string]bool{
+		"docker-compose.yml":  true,
+		"docker-compose.yaml": true,
+		".env":                true,
+		"Dockerfile":          true,
+	}
+
+	var foundFiles []string
+	for _, entry := range entries {
+		if targets[entry.Name()] {
+			foundFiles = append(foundFiles, entry.Name())
 		}
 	}
 	return foundFiles, nil
 }
 
-func (dm *DockerManager) ReadFile(projectName, fileName string) (string, error) {
-	fullPath := filepath.Join(BasePath, projectName, fileName)
-	content, err := os.ReadFile(fullPath)
-	if err != nil {
-		return "", fmt.Errorf("error al leer el archivo %s: %w", fileName, err)
-	}
-	return string(content), nil
-}
+// --- LÓGICA DE PUERTOS ---
 
-func (dm *DockerManager) WriteFile(projectName, fileName, content string) error {
-	fullPath := filepath.Join(BasePath, projectName, fileName)
-	err := os.WriteFile(fullPath, []byte(content), 0644)
-	if err != nil {
-		return fmt.Errorf("error al guardar el archivo %s: %w", fileName, err)
-	}
-	return nil
-}
-
-// --- NUEVA LÓGICA DE PUERTOS ---
-
-// GetRequiredPorts lee el docker-compose.yml y extrae los puertos del host (ej: "8080:80" -> "8080")
+// GetRequiredPorts lee el docker-compose.yml y extrae los puertos del host
 func (dm *DockerManager) GetRequiredPorts(projectName string) ([]string, error) {
-	files, _ := dm.GetProjectFiles(projectName)
+	files, err := dm.GetProjectFiles(projectName)
+	if err != nil {
+		return nil, err
+	}
+
 	var ymlFile string
 	for _, f := range files {
 		if strings.HasSuffix(f, ".yml") || strings.HasSuffix(f, ".yaml") {
@@ -72,7 +64,9 @@ func (dm *DockerManager) GetRequiredPorts(projectName string) ([]string, error) 
 		return nil, nil
 	}
 
-	content, err := dm.ReadFile(projectName, ymlFile)
+	// IMPORTANTE: Ahora usamos dm.FS.ReadFile en lugar de dm.ReadFile
+	// Unimos el nombre del proyecto y el archivo para crear la ruta relativa
+	content, err := dm.FS.ReadFile(filepath.Join(projectName, ymlFile))
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +89,7 @@ func (dm *DockerManager) GetRequiredPorts(projectName string) ([]string, error) 
 	return ports, nil
 }
 
-// CheckPortConflicts verifica si algún puerto requerido ya está siendo usado por otro contenedor activo
+// CheckPortConflicts verifica si algún puerto requerido ya está siendo usado
 func (dm *DockerManager) CheckPortConflicts(projectName string) (string, error) {
 	requiredPorts, err := dm.GetRequiredPorts(projectName)
 	if err != nil {
@@ -105,7 +99,6 @@ func (dm *DockerManager) CheckPortConflicts(projectName string) (string, error) 
 		return "", nil
 	}
 
-	// Listamos contenedores activos con container.ListOptions
 	containers, err := dm.Cli.ContainerList(context.Background(), container.ListOptions{})
 	if err != nil {
 		return "", err

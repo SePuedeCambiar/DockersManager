@@ -12,7 +12,7 @@
     <div class="container mx-auto p-6">
         <header class="flex justify-between items-center mb-8">
             <h1 class="text-3xl font-bold text-blue-400">🚀 Go Docker Manager</h1>
-            <span class="bg-gray-800 px-3 py-1 rounded-full text-sm border border-gray-700">Fase 2.5 - Control Total</span>
+            <span class="bg-gray-800 px-3 py-1 rounded-full text-sm border border-gray-700">Fase 2 - Editor de Archivos</span>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -39,11 +39,16 @@
                                 </span>
                             </td>
                             <td class="px-6 py-4 text-center space-x-1">
-                                <button hx-get="/control/{{.ID}}?action=start" hx-target="body" hx-swap="none" class="bg-green-600 hover:bg-green-500 p-1 rounded text-xs">Start</button>
-                                <button hx-get="/control/{{.ID}}?action=stop" hx-target="body" hx-swap="none" class="bg-red-600 hover:bg-red-500 p-1 rounded text-xs">Stop</button>
-                                <button hx-get="/control/{{.ID}}?action=restart" hx-target="body" hx-swap="none" class="bg-yellow-600 hover:bg-yellow-500 p-1 rounded text-xs">Restart</button>
-                                <!-- Botón para cargar logs y consola -->
-                                <button hx-get="/details/{{.ID}}" hx-target="#details-panel" class="bg-blue-600 hover:bg-blue-500 p-1 rounded text-xs">Gestionar</button>
+                                <!-- Controles Básicos -->
+                                <button hx-get="/control/{{.ID}}?action=start" hx-target="body" hx-swap="none" class="bg-green-600 hover:bg-green-500 p-1 rounded text-xs" title="Iniciar">Start</button>
+                                <button hx-get="/control/{{.ID}}?action=stop" hx-target="body" hx-swap="none" class="bg-red-600 hover:bg-red-500 p-1 rounded text-xs" title="Detener">Stop</button>
+                                <button hx-get="/control/{{.ID}}?action=restart" hx-target="body" hx-swap="none" class="bg-yellow-600 hover:bg-yellow-500 p-1 rounded text-xs" title="Reiniciar">Restart</button>
+                                
+                                <!-- Gestión Avanzada -->
+                                <button hx-get="/details/{{.ID}}" hx-target="#details-panel" class="bg-blue-600 hover:bg-blue-500 p-1 rounded text-xs" title="Logs y Consola">Gestionar</button>
+                                
+                                <!-- NUEVO: Botón de Archivos (Carga la lista de archivos en el panel lateral) -->
+                                <button hx-get="/files/{{.Name}}" hx-target="#details-panel" class="bg-purple-600 hover:bg-purple-500 p-1 rounded text-xs" title="Editar Configuración">Archivos</button>
                             </td>
                         </tr>
                         {{end}}
@@ -51,9 +56,9 @@
                 </table>
             </div>
 
-            <!-- Panel de Detalles (Logs y Consola) -->
+            <!-- Panel de Detalles (Logs, Consola y ahora Editor de Archivos) -->
             <div id="details-panel" class="bg-gray-800 rounded-lg p-6 border border-gray-700 shadow-xl">
-                <p class="text-gray-500 text-center italic">Selecciona un contenedor para ver sus logs y enviar comandos</p>
+                <p class="text-gray-500 text-center italic">Selecciona un contenedor para ver sus logs, enviar comandos o editar sus archivos</p>
             </div>
         </div>
     </div>
