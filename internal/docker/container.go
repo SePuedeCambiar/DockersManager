@@ -1,14 +1,14 @@
 package docker
 
 import (
-	"bytes"   // Añadido: Para capturar la salida en memoria
+	"bytes"
 	"context"
 	"fmt"
+	"strings" // Añadido el import necesario
 
-
-	"github.com/docker/docker/api/types"             
-	"github.com/docker/docker/api/types/container"   
-	"github.com/docker/docker/pkg/stdcopy"           
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/pkg/stdcopy"
 )
 
 // ContainerInfo es una estructura simplificada para mostrar la info del contenedor
@@ -33,7 +33,7 @@ func (dm *DockerManager) ListContainers() ([]ContainerInfo, error) {
 	for _, c := range containers {
 		name := "Sin nombre"
 		if len(c.Names) > 0 {
-			name = c.Names[0][1:] 
+			name = c.Names[0][1:]
 		}
 
 		result = append(result, ContainerInfo{
@@ -47,10 +47,26 @@ func (dm *DockerManager) ListContainers() ([]ContainerInfo, error) {
 	return result, nil
 }
 
-// StartContainer inicia un contenedor apagado
+// StartContainer inicia un contenedor apagado, pero primero valida los puertos
 func (dm *DockerManager) StartContainer(id string) error {
 	ctx := context.Background()
-	err := dm.Cli.ContainerStart(ctx, id, container.StartOptions{})
+
+	inspect, err := dm.Cli.ContainerInspect(ctx, id)
+	if err == nil {
+		projectName := inspect.Name
+		if strings.HasPrefix(projectName, "/") {
+			projectName = projectName[1:]
+		}
+
+		conflictContainer, err := dm.CheckPortConflicts(projectName)
+		if err != nil {
+			fmt.Printf("⚠️ Aviso: No se pudo validar puertos: %v\n", err)
+		} else if conflictContainer != "" {
+			return fmt.Errorf("conflicto de puertos: el puerto ya está siendo usado por el contenedor '%s'", conflictContainer)
+		}
+	}
+
+	err = dm.Cli.ContainerStart(ctx, id, container.StartOptions{})
 	if err != nil {
 		return fmt.Errorf("error al iniciar el contenedor %s: %w", id, err)
 	}
@@ -62,7 +78,7 @@ func (dm *DockerManager) StopContainer(id string) error {
 	ctx := context.Background()
 	timeout := 10
 	stopOptions := container.StopOptions{Timeout: &timeout}
-	
+
 	err := dm.Cli.ContainerStop(ctx, id, stopOptions)
 	if err != nil {
 		return fmt.Errorf("error al detener el contenedor %s: %w", id, err)
@@ -70,7 +86,7 @@ func (dm *DockerManager) StopContainer(id string) error {
 	return nil
 }
 
-// RestartContainer reinicia un contenedor deteniéndolo y volviéndolo a iniciar.
+// RestartContainer reinicia un contenedor deteniéndolo y volviéndolo a iniciar
 func (dm *DockerManager) RestartContainer(id string) error {
 	fmt.Printf("🔄 Reiniciando contenedor %s...\n", id)
 
@@ -87,7 +103,7 @@ func (dm *DockerManager) RestartContainer(id string) error {
 	return nil
 }
 
-// GetLogs obtiene los logs recientes y los devuelve como un string para la web
+// GetLogs obtiene los logs recientes y los devuelve como string
 func (dm *DockerManager) GetLogs(id string) (string, error) {
 	ctx := context.Background()
 
@@ -104,9 +120,8 @@ func (dm *DockerManager) GetLogs(id string) (string, error) {
 	}
 	defer out.Close()
 
-	// Usamos un buffer para guardar la salida en lugar de imprimirla en consola
 	var buf bytes.Buffer
-	_, err = stdcopy.StdCopy(&buf, &buf, out) 
+	_, err = stdcopy.StdCopy(&buf, &buf, out)
 	if err != nil {
 		return "", fmt.Errorf("error al procesar la salida de logs: %w", err)
 	}
@@ -114,7 +129,7 @@ func (dm *DockerManager) GetLogs(id string) (string, error) {
 	return buf.String(), nil
 }
 
-// ExecCommand ejecuta un comando y devuelve la respuesta como un string para la web
+// ExecCommand ejecuta un comando y devuelve la respuesta como string
 func (dm *DockerManager) ExecCommand(id string, cmd []string) (string, error) {
 	ctx := context.Background()
 
@@ -135,7 +150,6 @@ func (dm *DockerManager) ExecCommand(id string, cmd []string) (string, error) {
 	}
 	defer resp.Close()
 
-	// Usamos un buffer para capturar la respuesta del comando
 	var buf bytes.Buffer
 	_, err = stdcopy.StdCopy(&buf, &buf, resp.Reader)
 	if err != nil {
