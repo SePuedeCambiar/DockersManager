@@ -84,9 +84,11 @@ func (wh *WebHandler) ControlContainer(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// LogsHandler ahora crea una estructura de flujo natural (Top-Down)
+// LogsHandler renderiza la ESTRUCTURA (Cáscara) y los primeros logs
 func (wh *WebHandler) LogsHandler(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	
+	// 1. Obtenemos los logs iniciales
 	logs, err := wh.DockerMgr.GetLogs(id, "")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -95,16 +97,17 @@ func (wh *WebHandler) LogsHandler(w http.ResponseWriter, r *http.Request) {
 
 	firstTimestamp := extractFirstTimestamp(logs)
 
+	// IMPORTANTE: El título y el botón de actualizar están FUERA del área de contenido
 	fmt.Fprintf(w, `
 		<div class="flex flex-col space-y-2">
 			<div class="flex justify-between items-center mb-2">
-				<span class="text-sm font-semibold">Logs Recientes</span>
-				<button hx-get="/logs/%s" hx-target="#log-container" class="text-xs bg-gray-700 px-2 py-1 rounded">🔄 Actualizar</button>
+				<span class="text-sm font-semibold text-gray-300">Logs Recientes</span>
+				<button hx-get="/logs/%s" hx-target="#log-content" hx-swap="innerHTML" class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded transition-colors">🔄 Actualizar</button>
 			</div>
 			
-			<div id="log-container" class="flex flex-col">
-				<!-- Botón de carga previa: Siempre arriba del contenido -->
-				<div id="prev-button-area" class="flex justify-center mb-2">
+			<div id="log-wrapper" class="flex flex-col">
+				<!-- Botón de carga previa: Ahora apunta solo al contenido -->
+				<div id="prev-btn-container" class="flex justify-center mb-2">
 					<button hx-get="/logs-prev/%s?until=%s" 
 							hx-target="#log-content" 
 							hx-swap="afterbegin" 
@@ -113,7 +116,7 @@ func (wh *WebHandler) LogsHandler(w http.ResponseWriter, r *http.Request) {
 					</button>
 				</div>
 				
-				<!-- Área de contenido de logs -->
+				<!-- ÁREA DE CONTENIDO: Aquí es donde ocurre la magia sin duplicar títulos -->
 				<div id="log-content" class="text-xs text-green-400 p-2 bg-black rounded border border-gray-700 overflow-auto max-h-96 font-mono whitespace-pre-wrap">
 					%s
 				</div>
@@ -122,7 +125,7 @@ func (wh *WebHandler) LogsHandler(w http.ResponseWriter, r *http.Request) {
 	`, id, id, firstTimestamp, logs)
 }
 
-// LogsPreviousHandler ahora solo devuelve el bloque de texto
+// LogsPreviousHandler devuelve SOLAMENTE el texto, sin HTML envolvente pesado
 func (wh *WebHandler) LogsPreviousHandler(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	until := r.URL.Query().Get("until")
@@ -133,10 +136,11 @@ func (wh *WebHandler) LogsPreviousHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Devolvemos el texto envuelto en un div para que se mantenga el formato
-	// Usamos un div simple porque hx-swap="afterbegin" lo pondrá arriba del contenido actual
-	fmt.Fprintf(w, `<div class="pb-2 border-b border-gray-800 mb-2 opacity-70">%s</div>`, logs)
+	// Devolvemos el texto plano. HTMX lo insertará al principio del #log-content
+	// Añadimos un salto de línea al final para separar los bloques
+	fmt.Fprintf(w, `%s\n`, logs)
 }
+
 
 // Función auxiliar para extraer la fecha de la primera línea del log
 func extractFirstTimestamp(logs string) string {
