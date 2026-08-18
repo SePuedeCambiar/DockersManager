@@ -4,11 +4,15 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"strings" // Añadido el import necesario
+	"os"           // <--- AGREGADO
+	"path/filepath" // <--- AGREGADO
+	"strings"
+	"io"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/docker/go-connections/nat" // <--- AGREGADO (Para los puertos)
 )
 
 // ContainerInfo es una estructura simplificada para mostrar la info del contenedor
@@ -103,8 +107,10 @@ func (dm *DockerManager) RestartContainer(id string) error {
 	return nil
 }
 
-// GetLogs obtiene los logs recientes y los devuelve como string
-func (dm *DockerManager) GetLogs(id string) (string, error) {
+
+// GetLogs obtiene los logs. Si 'until' está vacío, trae los últimos. 
+// Si 'until' tiene un valor, trae los logs anteriores a ese tiempo.
+func (dm *DockerManager) GetLogs(id string, until string) (string, error) {
 	ctx := context.Background()
 
 	options := container.LogsOptions{
@@ -112,6 +118,11 @@ func (dm *DockerManager) GetLogs(id string) (string, error) {
 		ShowStderr: true,
 		Tail:       "100",
 		Follow:     false,
+		Timestamps: true, // <--- ACTIVADO: Necesitamos la hora para saber dónde cortar
+	}
+
+	if until != "" {
+		options.Until = until // Traer logs anteriores a este timestamp
 	}
 
 	out, err := dm.Cli.ContainerLogs(ctx, id, options)
@@ -128,6 +139,7 @@ func (dm *DockerManager) GetLogs(id string) (string, error) {
 
 	return buf.String(), nil
 }
+
 
 // ExecCommand ejecuta un comando y devuelve la respuesta como string
 func (dm *DockerManager) ExecCommand(id string, cmd []string) (string, error) {
@@ -157,4 +169,65 @@ func (dm *DockerManager) ExecCommand(id string, cmd []string) (string, error) {
 	}
 
 	return buf.String(), nil
+}
+
+// CreateManagedContainer crea el contenedor y su carpeta de configuración
+func (dm *DockerManager) CreateManagedContainer(name, image string, ports []string) error {
+	ctx := context.Background()
+
+	// 1. DESCARGAR LA IMAGEN (Crucial: sin esto, ContainerCreate falla si la imagen no existe)
+	fmt.Printf("🚚 Descargando imagen %s...\n", image)
+	reader, err := dm.Cli.ImagePull(ctx, image, types.ImagePullOptions{})
+	if err != nil {
+		return fmt.Errorf("error al solicitar descarga de imagen: %w", err)
+	}
+	defer reader.Close()
+	
+	// Leemos el reader hasta el final para esperar a que la descarga termine
+	// (Si no hacemos esto, el código sigue y falla porque la imagen aún no está lista)
+	_, _ = io.ReadAll(reader) 
+	fmt.Println("✅ Imagen descargada.")
+
+	// 2. Crear la carpeta en /stacks
+	// NOTA: Si estás en Debian, asegúrate de que la carpeta /stacks exista y tengas permisos:
+	// sudo mkdir /stacks && sudo chmod 777 /stacks
+	projectPath := filepath.Join(dm.FS.RootPath, name)
+	if err := os.MkdirAll(projectPath, 0755); err != nil {
+		return fmt.Errorf("error creando carpeta del proyecto (¿tienes permisos en /stacks?): %w", err)
+	}
+
+	// 3. Configurar el mapeo de puertos
+	portBindings := nat.PortMap{}
+	exposedPorts := nat.PortSet{}
+
+	for _, p := range ports {
+		parts := strings.Split(p, ":")
+		if len(parts) == 2 {
+			hostPort := parts[0]
+			containerPort := parts[1]
+			cPort := nat.Port(containerPort + "/tcp")
+			exposedPorts[cPort] = struct{}{}
+			portBindings[cPort] = []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: hostPort}}
+		}
+	}
+
+	hostConfig := &container.HostConfig{
+		PortBindings: portBindings,
+	}
+
+	// 4. Crear el contenedor
+	resp, err := dm.Cli.ContainerCreate(ctx, &container.Config{
+		Image:        image,
+		ExposedPorts: exposedPorts,
+	}, hostConfig, nil, nil, name)
+	if err != nil {
+		return fmt.Errorf("error al crear contenedor: %w", err)
+	}
+
+	// 5. Iniciar el contenedor
+	if err := dm.Cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return fmt.Errorf("error al iniciar contenedor: %w", err)
+	}
+
+	return nil
 }

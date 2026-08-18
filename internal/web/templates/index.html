@@ -6,49 +6,80 @@
     <title>Go Docker Manager</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(4px);
+        }
+    </style>
 </head>
-<body class="bg-gray-900 text-gray-100 font-sans">
+<body class="bg-gray-900 text-gray-100 font-sans min-h-screen">
 
     <div class="container mx-auto p-6">
-        <header class="flex justify-between items-center mb-8">
-            <h1 class="text-3xl font-bold text-blue-400">🚀 Go Docker Manager</h1>
-            <span class="bg-gray-800 px-3 py-1 rounded-full text-sm border border-gray-700">Fase 2 - Editor de Archivos</span>
+        <!-- HEADER -->
+        <header class="flex justify-between items-center mb-8 border-b border-gray-800 pb-4">
+            <div>
+                <h1 class="text-3xl font-bold text-blue-400">🚀 Go Docker Manager</h1>
+                <p class="text-xs text-gray-500">Gestión ligera y eficiente de contenedores</p>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <!-- TIENDA (Modal) -->
+                <button hx-get="/store" hx-target="#modal-content" 
+                        onclick="openModal()"
+                        class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-md flex items-center gap-2 text-white">
+                    <span>🏪</span> Store
+                </button>
+
+                <!-- NUEVO DOCKER (Modal) -->
+                <button hx-get="/create" hx-target="#modal-content" 
+                        onclick="openModal()"
+                        class="bg-green-600 hover:bg-green-500 px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-md flex items-center gap-2 text-white">
+                    <span>➕</span> Nuevo Docker
+                </button>
+
+                <!-- EXPLORADOR GLOBAL -->
+                <button hx-get="/explorer" hx-target="#details-panel" 
+                        class="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-md flex items-center gap-2 text-white">
+                    <span>📁</span> Explorador
+                </button>
+            </div>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Tabla de Contenedores -->
-            <div class="lg:col-span-2 bg-gray-800 rounded-lg shadow-xl overflow-hidden border border-gray-700">
+            <!-- TABLA DE CONTENEDORES -->
+            <div class="lg:col-span-2 bg-gray-800 rounded-xl shadow-xl overflow-hidden border border-gray-700 h-fit">
+                <div class="p-4 bg-gray-750 border-b border-gray-700 flex justify-between items-center">
+                    <h2 class="font-bold text-gray-200">Contenedores Activos</h2>
+                    <button hx-get="/containers-table" hx-target="#containers-body" class="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded text-gray-300">🔄 Refrescar</button>
+                </div>
                 <table class="w-full text-left">
                     <thead class="bg-gray-700 text-gray-300 uppercase text-xs">
                         <tr>
-                            <th class="px-6 py-3">Contenedor</th>
-                            <th class="px-6 py-3">Estado</th>
-                            <th class="px-6 py-3 text-center">Acciones</th>
+                            <th class="px-5 py-3">Contenedor</th>
+                            <th class="px-5 py-3">Estado</th>
+                            <th class="px-5 py-3 text-center">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-700">
+                    <tbody id="containers-body" class="divide-y divide-gray-700">
                         {{range .}}
-                        <tr class="hover:bg-gray-700 transition-colors">
-                            <td class="px-6 py-4">
-                                <div class="font-medium">{{.Name}}</div>
-                                <div class="text-xs text-gray-500">{{.ID}}</div>
+                        <tr class="hover:bg-gray-750 transition-colors">
+                            <td class="px-5 py-4">
+                                <div class="font-semibold text-blue-300">{{.Name}}</div>
+                                <div class="text-xs text-gray-500 font-mono">{{.ID}} • {{.Image}}</div>
                             </td>
-                            <td class="px-6 py-4">
-                                <span class="px-2 py-1 rounded-full text-xs {{if eq .State "running"}}bg-green-900 text-green-300{{else}}bg-red-900 text-red-300{{end}}">
+                            <td class="px-5 py-4">
+                                <span class="px-2.5 py-1 rounded-full text-xs font-semibold {{if eq .State "running"}}bg-green-900/60 text-green-300 border border-green-700{{else}}bg-red-900/60 text-red-300 border border-red-700{{end}}">
                                     {{.State}}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 text-center space-x-1">
-                                <!-- Controles Básicos -->
-                                <button hx-get="/control/{{.ID}}?action=start" hx-target="body" hx-swap="none" class="bg-green-600 hover:bg-green-500 p-1 rounded text-xs" title="Iniciar">Start</button>
-                                <button hx-get="/control/{{.ID}}?action=stop" hx-target="body" hx-swap="none" class="bg-red-600 hover:bg-red-500 p-1 rounded text-xs" title="Detener">Stop</button>
-                                <button hx-get="/control/{{.ID}}?action=restart" hx-target="body" hx-swap="none" class="bg-yellow-600 hover:bg-yellow-500 p-1 rounded text-xs" title="Reiniciar">Restart</button>
-                                
-                                <!-- Gestión Avanzada -->
-                                <button hx-get="/details/{{.ID}}" hx-target="#details-panel" class="bg-blue-600 hover:bg-blue-500 p-1 rounded text-xs" title="Logs y Consola">Gestionar</button>
-                                
-                                <!-- NUEVO: Botón de Archivos (Carga la lista de archivos en el panel lateral) -->
-                                <button hx-get="/files/{{.Name}}" hx-target="#details-panel" class="bg-purple-600 hover:bg-purple-500 p-1 rounded text-xs" title="Editar Configuración">Archivos</button>
+                            <td class="px-5 py-4 text-center space-x-1">
+                                <!-- Botones de ciclo de vida con recarga automática -->
+                                <button hx-get="/control/{{.ID}}?action=start" hx-target="#containers-body" class="bg-green-700 hover:bg-green-600 px-2.5 py-1 rounded text-xs">▶</button>
+                                <button hx-get="/control/{{.ID}}?action=stop" hx-target="#containers-body" class="bg-red-700 hover:bg-red-600 px-2.5 py-1 rounded text-xs">⏹</button>
+                                <button hx-get="/control/{{.ID}}?action=restart" hx-target="#containers-body" class="bg-yellow-700 hover:bg-yellow-600 px-2.5 py-1 rounded text-xs">🔄</button>
+                                <!-- Botón unificado de gestión -->
+                                <button hx-get="/details/{{.Name}}?id={{.ID}}" hx-target="#details-panel" class="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded text-xs font-semibold">Gestionar</button>
                             </td>
                         </tr>
                         {{end}}
@@ -56,12 +87,41 @@
                 </table>
             </div>
 
-            <!-- Panel de Detalles (Logs, Consola y ahora Editor de Archivos) -->
-            <div id="details-panel" class="bg-gray-800 rounded-lg p-6 border border-gray-700 shadow-xl">
-                <p class="text-gray-500 text-center italic">Selecciona un contenedor para ver sus logs, enviar comandos o editar sus archivos</p>
+            <!-- PANEL LATERAL CONSOLIDADO -->
+            <div id="details-panel" class="bg-gray-800 rounded-xl p-5 border border-gray-700 shadow-xl min-h-[400px]">
+                <div class="flex flex-col items-center justify-center h-64 text-gray-500 space-y-2 text-center">
+                    <span class="text-3xl">⚙️</span>
+                    <p class="text-sm italic">Selecciona un contenedor o abre el explorador para ver detalles</p>
+                </div>
             </div>
         </div>
     </div>
 
+    <!-- SISTEMA DE MODAL FLOTANTE -->
+    <div id="modal-overlay" onclick="closeModalOnBackdrop(event)" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-800 w-full max-w-4xl max-h-[90vh] rounded-2xl border border-gray-700 shadow-2xl overflow-hidden flex flex-col" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center p-4 border-b border-gray-700 bg-gray-750">
+                <h3 class="text-base font-bold text-white">Centro de Recursos</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-white text-2xl font-bold leading-none">&times;</button>
+            </div>
+            <div id="modal-content" class="p-6 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <!-- Scripts de interactividad limpia -->
+    <script>
+        function openModal() {
+            document.getElementById('modal-overlay').classList.remove('hidden');
+        }
+        function closeModal() {
+            document.getElementById('modal-overlay').classList.add('hidden');
+        }
+        function closeModalOnBackdrop(e) {
+            if (e.target.id === 'modal-overlay') closeModal();
+        }
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+    </script>
 </body>
 </html>
