@@ -17,10 +17,13 @@ jobs:
     - name: Configurar Go
       uses: actions/setup-go@v4
       with:
+        # Usamos la versión 1.22 o superior para coincidir con tu go.mod
         go-version: '1.22'
 
     - name: Instalar dependencias
       run: go mod tidy
 
     - name: Ejecutar Pruebas
-      run: go test ./...
+      # Ejecuta todas las pruebas del proyecto. 
+      # Gracias a t.Skipf, las pruebas que requieren Docker no romperán el CI.
+      run: go test -v ./...
